@@ -1,1 +1,3 @@
-# CrackDiff : Crack Segmentation with Diffusion Model
+# CrackDiff: Crack Segmentation with Diffusion Model  
+
+Work in progress ...
