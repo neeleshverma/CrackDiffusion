@@ -80,6 +80,9 @@ def predict_labels(models, features, size):
     with torch.no_grad():
         for MODEL_NUMBER in range(len(models)):
             preds = models[MODEL_NUMBER](features.cuda())
+
+            # print("Eval Predictions : ", preds)
+
             entropy = Categorical(logits=preds).entropy()
             all_entropy.append(entropy)
             all_seg.append(preds)
@@ -89,13 +92,19 @@ def predict_labels(models, features, size):
             else:
                 mean_seg += softmax_f(preds)
 
+            # print("Preds : ", preds)
+
             img_seg = oht_to_scalar(preds)
+
+            # print("Image seg : ", img_seg.shape)
+
             img_seg = img_seg.reshape(*size)
             img_seg = img_seg.cpu().detach()
 
             seg_mode_ensemble.append(img_seg)
 
         mean_seg = mean_seg / len(all_seg)
+        # print("Mean Seg : ", mean_seg)
 
         full_entropy = Categorical(mean_seg).entropy()
 
@@ -110,11 +119,14 @@ def predict_labels(models, features, size):
 def save_predictions(args, image_paths, preds):
     # palette = get_palette(args['category'])
     os.makedirs(os.path.join(args['exp_dir'], 'predictions'), exist_ok=True)
+    os.makedirs(os.path.join(args['exp_dir'], 'visualizations'), exist_ok=True)
 
     for i, pred in enumerate(preds):
         filename = image_paths[i].split('/')[-1].split('.')[0]
         pred = np.squeeze(pred)
         np.save(os.path.join(args['exp_dir'], 'predictions', filename + '.npy'), pred)
+        img = Image.fromarray(pred.astype('uint8') * 255)
+        img.save(os.path.join(args['exp_dir'], 'visualizations', filename + '.png'))
 
 
 def compute_iou(args, preds, gts, print_per_class_ious=True):

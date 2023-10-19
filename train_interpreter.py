@@ -78,8 +78,10 @@ def evaluation(args, models):
         img = img[None].to(dev())
         features = eval_feature_extractor(img, noise=noise)
         features = collect_features(args, features)
-
         x = features.view(args['dim'][-1], -1).permute(1, 0)
+
+        # print("Eval Features shape : ", x.shape)
+
         pred, uncertainty_score = predict_labels(
             models, x, size=args['dim'][:-1]
         )
@@ -120,8 +122,8 @@ def train(args):
         flag = 0
 
         for epoch in range(args['num_epochs']):
-            # print("")
-            # print("******************************** EPOCH {} **********************************".format(epoch))
+            print("")
+            print("******************************** EPOCH {} **********************************".format(epoch))
             iteration = 0
             for row, (batch_img, batch_label) in enumerate(image_dataloader):
                 features, labels = extract_image_features(batch_img, batch_label, noise, dataset.image_paths[row], args)
@@ -188,10 +190,10 @@ if __name__ == '__main__':
     opts['image_size'] = opts['dim'][0]
 
     # Prepare the experiment folder 
-    if len(opts['steps']) > 0:
-        suffix = '_'.join([str(step) for step in opts['steps']])
-        suffix += '_' + '_'.join([str(step) for step in opts['blocks']])
-        opts['exp_dir'] = os.path.join(opts['exp_dir'], suffix)
+    # if len(opts['steps']) > 0:
+    #     suffix = '_'.join([str(step) for step in opts['steps']])
+    #     suffix += '_' + '_'.join([str(step) for step in opts['blocks']])
+    #     opts['exp_dir'] = os.path.join(opts['exp_dir'], suffix)
 
     path = opts['exp_dir']
     os.makedirs(path, exist_ok=True)
