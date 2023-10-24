@@ -76,35 +76,33 @@ def predict_labels(models, features, size):
     all_entropy = []
     seg_mode_ensemble = []
 
+    #TODO Softmax or Sigmoid
+
     softmax_f = nn.Softmax(dim=1)
     with torch.no_grad():
         for MODEL_NUMBER in range(len(models)):
+            
+            # For 256 x 256 image = 65536 pixels, preds will be [65536,2]
             preds = models[MODEL_NUMBER](features.cuda())
-
-            # print("Eval Predictions : ", preds)
 
             entropy = Categorical(logits=preds).entropy()
             all_entropy.append(entropy)
             all_seg.append(preds)
 
+            # Probability map -> [65536,2]
             if mean_seg is None:
                 mean_seg = softmax_f(preds)
             else:
                 mean_seg += softmax_f(preds)
 
-            # print("Preds : ", preds)
-
+            # Class 0 or 1 per pixel (using log softmax) -> [65536]
             img_seg = oht_to_scalar(preds)
-
-            # print("Image seg : ", img_seg.shape)
 
             img_seg = img_seg.reshape(*size)
             img_seg = img_seg.cpu().detach()
-
             seg_mode_ensemble.append(img_seg)
 
         mean_seg = mean_seg / len(all_seg)
-        # print("Mean Seg : ", mean_seg)
 
         full_entropy = Categorical(mean_seg).entropy()
 
@@ -112,21 +110,41 @@ def predict_labels(models, features, size):
         top_k = js.sort()[0][- int(js.shape[0] / 10):].mean()
 
         img_seg_final = torch.stack(seg_mode_ensemble, dim=-1)
+        # Assign the label to the pixel that is the most frequent one across all models
+        # [256, 256, num_models] -> [256, 256]
         img_seg_final = torch.mode(img_seg_final, 2)[0]
-    return img_seg_final, top_k
+
+        # [65536,2] -> [65536,1] -> [256,256]
+        mean_seg = mean_seg[:,1]
+        mean_seg = mean_seg.reshape(*size)
+        mean_seg = mean_seg.cpu().detach()
+    return mean_seg, img_seg_final, top_k
 
 
-def save_predictions(args, image_paths, preds):
+def save_predictions(args, image_paths, preds, prob_maps, gts):
     # palette = get_palette(args['category'])
-    os.makedirs(os.path.join(args['exp_dir'], 'predictions'), exist_ok=True)
-    os.makedirs(os.path.join(args['exp_dir'], 'visualizations'), exist_ok=True)
+    # os.makedirs(os.path.join(args['exp_dir'], 'predictions'), exist_ok=True)
+    os.makedirs(os.path.join(args['exp_dir'], args['segmentations_folder']), exist_ok=True)
+    os.makedirs(os.path.join(args['exp_dir'], args['ground_truths_folder']), exist_ok=True)
+    os.makedirs(os.path.join(args['exp_dir'], args['probability_maps_folder']), exist_ok=True)
 
-    for i, pred in enumerate(preds):
+    for i, (pred, gt, prob_map) in enumerate(zip(preds, gts, prob_maps)):
         filename = image_paths[i].split('/')[-1].split('.')[0]
         pred = np.squeeze(pred)
-        np.save(os.path.join(args['exp_dir'], 'predictions', filename + '.npy'), pred)
-        img = Image.fromarray(pred.astype('uint8') * 255)
-        img.save(os.path.join(args['exp_dir'], 'visualizations', filename + '.png'))
+        # np.save(os.path.join(args['exp_dir'], 'predictions', filename + '.npy'), pred)
+        # Save Segmented Image
+        seg_img = Image.fromarray(pred.astype('uint8') * 255)
+        seg_img.save(os.path.join(args['exp_dir'], args['segmentations_folder'], filename + '.png'))
+
+        # Save the ground truth
+        gt = np.squeeze(gt)
+        gt_img = Image.fromarray(gt.astype('uint8') * 255)
+        gt_img.save(os.path.join(args['exp_dir'], args['ground_truths_folder'], filename + '.png'))
+
+        # Save the probability map
+        prob_map = np.squeeze(prob_map)
+        prob_map_img = Image.fromarray((prob_map * 255.0).astype('uint8'))
+        prob_map_img.save(os.path.join(args['exp_dir'], args['probability_maps_folder'], filename + '.png'))
 
 
 def compute_iou(args, preds, gts, print_per_class_ious=True):

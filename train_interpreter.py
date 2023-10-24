@@ -4,11 +4,12 @@ from tqdm import tqdm
 import json
 import os
 import gc
+import numpy as np
 
 from torch.utils.data import DataLoader
 
 import argparse
-from src.utils import setup_seed, multi_acc
+from src.utils import setup_seed, multi_acc, get_prob_map_list, ods_metric, ois_metric
 from src.pixel_classifier import  load_ensemble, compute_iou, predict_labels, save_predictions, save_predictions, pixel_classifier
 from src.datasets import ImageLabelDataset, FeatureDataset, make_transform
 from src.feature_extractors import create_feature_extractor, collect_features
@@ -73,26 +74,38 @@ def evaluation(args, models):
     dataset = prepare_dataset(args['testing_path'], args['image_size'], args['testing_number'], args['model_type'])
     noise = prepare_noise(args)
 
-    preds, gts, uncertainty_scores = [], [], []
+    preds, gts, uncertainty_scores, prob_maps = [], [], [], []
     for img, label in tqdm(dataset):        
         img = img[None].to(dev())
         features = eval_feature_extractor(img, noise=noise)
         features = collect_features(args, features)
         x = features.view(args['dim'][-1], -1).permute(1, 0)
 
-        # print("Eval Features shape : ", x.shape)
-
-        pred, uncertainty_score = predict_labels(
+        prob_map, pred, uncertainty_score = predict_labels(
             models, x, size=args['dim'][:-1]
         )
         gts.append(label.numpy())
         preds.append(pred.numpy())
+        prob_maps.append(prob_map.numpy())
         uncertainty_scores.append(uncertainty_score.item())
     
-    save_predictions(args, dataset.image_paths, preds)
+    save_predictions(args, dataset.image_paths, preds, prob_maps, gts)
     miou = compute_iou(args, preds, gts)
+    print("--------------------------------- IoU Scores ----------------------------------")
     print(f'Overall mIoU: ', miou)
     print(f'Mean uncertainty: {sum(uncertainty_scores) / len(uncertainty_scores)}')
+    print("-------------------------------------------------------------------------------")
+
+    prob_maps_list, gt_list = get_prob_map_list(args)
+    ods_score_list = ods_metric(prob_maps_list, gt_list)
+    best_ods_score = np.amax(ods_score_list, axis=0)
+    ois_score = ois_metric(prob_maps_list, gt_list)
+
+    print("--------------------------------- ODS & OIS ----------------------------------")
+    print(f'ODS Score : ', best_ods_score[3])
+    print(f'OIS Score : ', ois_score)
+    print("------------------------------------------------------------------------------")
+    # ods_score = 
 
 
 # Adopted from https://github.com/nv-tlabs/datasetGAN_release/blob/d9564d4d2f338eaad78132192b865b6cc1e26cac/datasetGAN/train_interpreter.py#L434

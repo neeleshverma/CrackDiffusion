@@ -24,6 +24,9 @@ import torch
 from PIL import Image
 import numpy as np
 import random
+import glob
+import os
+import cv2
 
 
 def multi_acc(y_pred, y_test):
@@ -40,6 +43,7 @@ def multi_acc(y_pred, y_test):
 
 def oht_to_scalar(y_pred):
     y_pred_softmax = torch.log_softmax(y_pred, dim=1)
+    # From log softmax, get the actual class label - 0 or 1.
     _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
 
     return y_pred_tags
@@ -69,3 +73,75 @@ def setup_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def confusion_matrix(pred, gt):
+    """
+    return tp, fp, fn
+    """
+    tp = np.sum((pred == 1) & (gt == 1))
+    fp = np.sum((pred == 1) & (gt == 0))
+    fn = np.sum((pred == 0) & (gt == 1))
+    return [tp, fp, fn]
+
+
+def get_prob_map_list(args):
+    prob_map_imgs, gt_imgs = [], []
+    for pred_path in glob.glob(os.path.join(args['exp_dir'], args['probability_maps_folder'], "*")):
+        filename = os.path.basename(pred_path)
+        gt_path = os.path.join(args['exp_dir'], args['ground_truths_folder'], filename)
+
+        gt_img = cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE)
+        pred_img = cv2.imread(pred_path, cv2.IMREAD_GRAYSCALE)
+        gt_imgs.append(gt_img)
+        prob_map_imgs.append(pred_img)
+
+    return prob_map_imgs, gt_imgs
+
+
+def ods_metric(pred_list, gt_list, thresh_step=0.01):
+    final_accuracy_all = []
+    for thresh in np.arange(0.0, 1.0, thresh_step):
+        statistics = []
+
+        for pred, gt in zip(pred_list, gt_list):
+            
+            gt_img = (gt / 255).astype('uint8')
+            pred_img = ((pred / 255) > thresh).astype('uint8')
+            # calculate each image
+            statistics.append(confusion_matrix(pred_img, gt_img))
+
+        # get tp, fp, fn
+        tp = np.sum([v[0] for v in statistics])
+        fp = np.sum([v[1] for v in statistics])
+        fn = np.sum([v[2] for v in statistics])
+
+        # calculate precision
+        p_acc = 1.0 if tp == 0 and fp == 0 else tp / (tp + fp)
+        # calculate recall
+        r_acc = tp / (tp + fn)
+        # calculate f-score
+        final_accuracy_all.append([thresh, p_acc, r_acc, 2 * p_acc * r_acc / (p_acc + r_acc)])
+
+    return final_accuracy_all
+
+
+def ois_metric(pred_list, gt_list, thresh_step=0.01):
+    final_acc_all = []
+    for pred, gt in zip(pred_list, gt_list):
+        statistics = []
+        for thresh in np.arange(0.0, 1.0, thresh_step):
+            gt_img = (gt / 255).astype('uint8')
+            pred_img = (pred / 255 > thresh).astype('uint8')
+            tp, fp, fn = confusion_matrix(pred_img, gt_img)
+            p_acc = 1.0 if tp == 0 and fp == 0 else tp / (tp + fp)
+            r_acc = tp / (tp + fn)
+
+            if p_acc + r_acc == 0:
+                f1 = 0
+            else:
+                f1 = 2 * p_acc * r_acc / (p_acc + r_acc)
+            statistics.append([thresh, f1])
+        max_f = np.amax(statistics, axis=0)
+        final_acc_all.append(max_f[1])
+    return np.mean(final_acc_all)
