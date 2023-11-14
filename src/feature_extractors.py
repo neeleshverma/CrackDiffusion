@@ -236,6 +236,21 @@ def collect_features(args, activations: List[torch.Tensor], sample_idx=0):
     assert all([isinstance(acts, torch.Tensor) for acts in activations])
     size = tuple(args['dim'][:-1])
     resized_activations = []
+
+    # feats = activations[-1]
+    # feats = feats[sample_idx][None]
+    # feats = nn.functional.interpolate(feats, size=size, mode=args["upsample_mode"])
+    # print("Feats : ", feats.shape)
+    # resized_activations.append(feats[0])
+    # idx_list = [8,10,12,14]
+    # for index in idx_list:
+    #     feats = activations[index]
+    #     feats = feats[sample_idx][None]
+    #     feats = nn.functional.interpolate(
+    #         feats, size=size, mode=args["upsample_mode"]
+    #     )
+    #     # print("Feats : ", feats.shape)
+    #     # resized_activations.append(feats[0])
     for feats in activations:
         feats = feats[sample_idx][None]
         feats = nn.functional.interpolate(

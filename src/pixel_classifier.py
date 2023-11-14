@@ -14,26 +14,26 @@ from PIL import Image
 class pixel_classifier(nn.Module):
     def __init__(self, numpy_class, dim):
         super(pixel_classifier, self).__init__()
-        if numpy_class < 30:
-            self.layers = nn.Sequential(
-                nn.Linear(dim, 128),
-                nn.ReLU(),
-                nn.BatchNorm1d(num_features=128),
-                nn.Linear(128, 32),
-                nn.ReLU(),
-                nn.BatchNorm1d(num_features=32),
-                nn.Linear(32, numpy_class)
-            )
-        else:
-            self.layers = nn.Sequential(
-                nn.Linear(dim, 256),
-                nn.ReLU(),
-                nn.BatchNorm1d(num_features=256),
-                nn.Linear(256, 128),
-                nn.ReLU(),
-                nn.BatchNorm1d(num_features=128),
-                nn.Linear(128, numpy_class)
-            )
+        # if numpy_class < 30:
+        self.layers = nn.Sequential(
+            nn.Linear(dim, 128),
+            nn.ReLU(),
+            nn.BatchNorm1d(num_features=128),
+            nn.Linear(128, 32),
+            nn.ReLU(),
+            nn.BatchNorm1d(num_features=32),
+            nn.Linear(32, numpy_class)
+        )
+        # else:
+        #     self.layers = nn.Sequential(
+        #         nn.Linear(dim, 256),
+        #         nn.ReLU(),
+        #         nn.BatchNorm1d(num_features=256),
+        #         nn.Linear(256, 128),
+        #         nn.ReLU(),
+        #         nn.BatchNorm1d(num_features=128),
+        #         nn.Linear(128, numpy_class)
+        #     )
 
     def init_weights(self, init_type='normal', gain=0.02):
         '''
