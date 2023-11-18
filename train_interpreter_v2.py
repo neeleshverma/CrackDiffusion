@@ -11,7 +11,7 @@ from torchsummary import summary
 import torchinfo
 
 import argparse
-from src.utils import setup_seed, multi_acc, get_prob_map_list, ods_metric, ois_metric
+from src.utils import setup_seed, multi_acc, get_prob_map_list, ods_metric, ois_metric, plot
 from src.pixel_classifier import  load_ensemble_v2, compute_iou, predict_labels_v2, save_predictions, pixel_classifier_v2
 from src.datasets import ImageLabelDataset, FeatureDataset, make_transform
 from src.feature_extractors import create_feature_extractor, collect_features_v2
@@ -153,13 +153,22 @@ def train_v2(args):
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
         classifier.train()
 
+        # Losses for plotting graphs
+        topology_loss_list = []
+        bce_loss_list = []
+
         print("*********** TRAINING MODEL {}************** \n".format(MODEL_NUMBER))
-        for epoch in tqdm(range(args['num_epochs'])):
+        for epoch in range(args['num_epochs']):
+
             start = time.time()
             epoch_loss = 0
+            iteration = 0
+            topology_loss = 0.0
+            bce_loss = 0.0
+
             print("")
             print("******************************** EPOCH {} **********************************".format(epoch))
-            iteration = 0
+
             for row, (batch_img, batch_label) in tqdm(enumerate(image_dataloader)):
                 X_batch, y_batch = extract_image_features_v2(batch_img, batch_label, noise, dataset.image_paths[row], args)
 
@@ -172,9 +181,13 @@ def train_v2(args):
                 y_pred = y_pred.type(torch.float)
 
                 loss = criterion1(y_pred, y_batch)
-                # print("BCE Loss : {}", loss)
+                bce_loss += loss.item()
+
                 if epoch >= topoloss_epoch:
-                    loss += (topology_loss_weight * getTopoLoss(y_pred, y_batch))
+                    topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
+                    topology_loss += topoloss.item()
+                    loss += topoloss
+                
                 epoch_loss += loss.item()
                 loss.backward()
                 optimizer.step()
@@ -184,6 +197,9 @@ def train_v2(args):
             print("***************** Epoch {} : Loss {:.2f}".format(epoch, epoch_loss))
             print("***************** Elapsed Time {} : ".format(end - start))
 
+            topology_loss_list.append(topology_loss)
+            bce_loss_list.append(bce_loss)
+
         
         model_path = os.path.join(args['exp_dir'], 'model_' + str(MODEL_NUMBER) + '.pth')
         MODEL_NUMBER += 1
@@ -191,6 +207,10 @@ def train_v2(args):
         print('Saving Model:',model_path)
         torch.save({'model_state_dict': classifier.state_dict()}, model_path)
         print('')
+
+        print('Saving Loss Plots ', args['exp_dir'])
+        plot(topology_loss_list, os.path.join(args['exp_dir'], "topoloss.png"), ylabel="Topology Loss", xlabel="Epochs")
+        plot(bce_loss_list, os.path.join(args['exp_dir'], "bce_loss.png"), ylabel="BCE Loss List", xlabel="Epochs")
                 
 
 

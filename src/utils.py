@@ -27,6 +27,7 @@ import random
 import glob
 import os
 import cv2
+import matplotlib.pyplot as plt
 
 
 def multi_acc(y_pred, y_test):
@@ -145,3 +146,13 @@ def ois_metric(pred_list, gt_list, thresh_step=0.01):
         max_f = np.amax(statistics, axis=0)
         final_acc_all.append(max_f[1])
     return np.mean(final_acc_all)
+
+
+def plot(y_list, location, ylabel, xlabel):
+    x_list = [i+1 for i in range(len(y_list))]
+    plt.plot(y_list)
+    plt.ylabel(ylabel)
+    plt.xlabel(xlabel)
+    plt.title(ylabel + " vs " + xlabel)
+    plt.savefig(location)
+    plt.close()
