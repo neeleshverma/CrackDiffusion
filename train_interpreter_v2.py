@@ -15,9 +15,12 @@ from src.utils import setup_seed, multi_acc, get_prob_map_list, ods_metric, ois_
 from src.pixel_classifier import  load_ensemble_v2, compute_iou, predict_labels_v2, save_predictions, pixel_classifier_v2
 from src.datasets import ImageLabelDataset, FeatureDataset, make_transform
 from src.feature_extractors import create_feature_extractor, collect_features_v2
+from src.topoloss import getTopoLoss
 
 from guided_diffusion.guided_diffusion.script_util import model_and_diffusion_defaults, add_dict_to_argparser
 from guided_diffusion.guided_diffusion.dist_util import dev
+
+import time
 
 
 feature_extractor = None
@@ -72,27 +75,29 @@ def evaluation_v2(args, models):
     print("")
     print("************************************* Evaluation ****************************************")
     eval_feature_extractor = create_feature_extractor(**args)
-    dataset = prepare_dataset(args['testing_path'], args['image_size'], args['testing_number'], args['model_type'])
+    dataset = prepare_dataset(args['testing_path'], args['image_size'], args['num_testing_images'], args['model_type'])
     noise = prepare_noise(args)
 
-    preds, gts, uncertainty_scores, prob_maps = [], [], [], []
+    preds, gts, prob_maps = [], [], []
     for img, label in tqdm(dataset):
         img = img[None].to(dev())
         X = eval_feature_extractor(img, noise=noise)
         X = collect_features_v2(args, X)
         X = torch.unsqueeze(X, dim=0)  
-        print("X shape : ", X.shape)
+        # print("X shape : ", X.shape)
 
         prob_map, pred = predict_labels_v2(
             models, X, size=args['dim'][-1]
         )
-        print(pred)
-        print(label)
-        exit(0)
+        # pred = 1.0 - pred
+        # print(pred)
+        # print(label)
+        # print(prob_map)
+        # exit(0)
         gts.append(label.numpy())
         preds.append(pred.numpy())
         prob_maps.append(prob_map.numpy())
-        uncertainty_scores.append(uncertainty_score.item())
+        # uncertainty_scores.append(uncertainty_score.item())
     
     save_predictions(args, dataset.image_paths, preds, prob_maps, gts)
 
@@ -100,10 +105,10 @@ def evaluation_v2(args, models):
     miou = compute_iou(args, preds, gts)
     print("--------------------------------- IoU Scores ----------------------------------")
     print(f'Overall mIoU: ', miou)
-    print(f'Mean uncertainty: {sum(uncertainty_scores) / len(uncertainty_scores)}')
+    # print(f'Mean uncertainty: {sum(uncertainty_scores) / len(uncertainty_scores)}')
     print("-------------------------------------------------------------------------------")
 
-    log_txt = "Overall mIoU : {}\nMean uncertainty : {}\n\n".format(miou, sum(uncertainty_scores) / len(uncertainty_scores))
+    log_txt = "Overall mIoU : {} : \n".format(miou)
 
     # Compute and print ODS, OIS scores
     prob_maps_list, gt_list = get_prob_map_list(args)
@@ -126,7 +131,7 @@ def evaluation_v2(args, models):
     
 
 def train_v2(args):
-    dataset = prepare_dataset(args['training_path'], args['image_size'], args['training_number'], args['model_type'])
+    dataset = prepare_dataset(args['training_path'], args['image_size'], args['num_training_images'], args['model_type'])
     noise = prepare_noise(args)
 
     image_dataloader = DataLoader(dataset, batch_size=args['image_batch_size'], shuffle=True)
@@ -134,23 +139,28 @@ def train_v2(args):
     global feature_extractor
     feature_extractor = create_feature_extractor(**args)
 
+    topology_loss_weight = args['topology_weight']
+    topoloss_epoch = args['start_topoloss']
+
     for MODEL_NUMBER in range(args['start_model_num'], args['model_num'], 1):
         gc.collect()
         classifier = pixel_classifier_v2(numpy_class=(args['number_class']), dim=args['dim'][-1])
         classifier.init_weights()
 
         classifier = nn.DataParallel(classifier).cuda()
-        criterion = nn.BCELoss()
+        criterion1 = nn.BCEWithLogitsLoss()
+        # criterion2 = getTopoLoss()
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
         classifier.train()
 
-
-        for epoch in range(args['num_epochs']):
+        print("*********** TRAINING MODEL {}************** \n".format(MODEL_NUMBER))
+        for epoch in tqdm(range(args['num_epochs'])):
+            start = time.time()
             epoch_loss = 0
             print("")
             print("******************************** EPOCH {} **********************************".format(epoch))
             iteration = 0
-            for row, (batch_img, batch_label) in enumerate(image_dataloader):
+            for row, (batch_img, batch_label) in tqdm(enumerate(image_dataloader)):
                 X_batch, y_batch = extract_image_features_v2(batch_img, batch_label, noise, dataset.image_paths[row], args)
 
                 X_batch, y_batch = X_batch.to(dev()), y_batch.to(dev())
@@ -161,12 +171,19 @@ def train_v2(args):
                 y_pred = y_pred.squeeze(dim=1)
                 y_pred = y_pred.type(torch.float)
 
-                loss = criterion(y_pred, y_batch)
+                loss = criterion1(y_pred, y_batch)
+                # print("BCE Loss : {}", loss)
+                if epoch >= topoloss_epoch:
+                    loss += (topology_loss_weight * getTopoLoss(y_pred, y_batch))
                 epoch_loss += loss.item()
                 loss.backward()
                 optimizer.step()
             
+            end = time.time()
+            
             print("***************** Epoch {} : Loss {:.2f}".format(epoch, epoch_loss))
+            print("***************** Elapsed Time {} : ".format(end - start))
+
         
         model_path = os.path.join(args['exp_dir'], 'model_' + str(MODEL_NUMBER) + '.pth')
         MODEL_NUMBER += 1

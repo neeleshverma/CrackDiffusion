@@ -18,8 +18,7 @@ class pixel_classifier_v2(nn.Module):
             nn.Conv2d(dim, dim//2, kernel_size=1),
             nn.BatchNorm2d(dim//2),
             nn.ReLU(),
-            nn.Conv2d(dim//2, 1, kernel_size=1),
-            nn.Sigmoid())
+            nn.Conv2d(dim//2, 1, kernel_size=1))
 
     def init_weights(self, init_type='normal', gain=0.02):
         '''
@@ -115,7 +114,7 @@ def predict_labels_v2(models, images, size):
             
             preds = models[MODEL_NUMBER](images.cuda())
             preds = preds.view(preds.shape[2], preds.shape[3])
-            print("preds shape : ", preds.shape)
+            # print("preds shape : ", preds.shape)
 
             if mean_seg is None:
                 mean_seg = sigmoid(preds)
@@ -200,7 +199,7 @@ def save_predictions(args, image_paths, preds, prob_maps, gts):
 
     for i, (pred, gt, prob_map) in enumerate(zip(preds, gts, prob_maps)):
         filename = image_paths[i].split('/')[-1].split('.')[0]
-        pred = np.squeeze(pred)
+        # pred = np.squeeze(pred)
         # np.save(os.path.join(args['exp_dir'], 'predictions', filename + '.npy'), pred)
         # Save Segmented Image
         seg_img = Image.fromarray(pred.astype('uint8') * 255)
