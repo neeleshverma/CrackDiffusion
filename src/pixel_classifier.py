@@ -10,11 +10,55 @@ from src.data_util import get_palette, get_class_names
 from PIL import Image
 
 
+class pixel_classifier_v2(nn.Module):
+    def __init__(self, numpy_class, dim):
+        super(pixel_classifier_v2, self).__init__()
+
+        self.layers = nn.Sequential(
+            nn.Conv2d(dim, dim//2, kernel_size=1),
+            nn.BatchNorm2d(dim//2),
+            nn.ReLU(),
+            nn.Conv2d(dim//2, 1, kernel_size=1),
+            nn.Sigmoid())
+
+    def init_weights(self, init_type='normal', gain=0.02):
+        '''
+        initialize network's weights
+        init_type: normal | xavier | kaiming | orthogonal
+        https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/9451e70673400885567d08a9e97ade2524c700d0/models/networks.py#L39
+        '''
+
+        def init_func(m):
+            classname = m.__class__.__name__
+            if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+                if init_type == 'normal':
+                    nn.init.normal_(m.weight.data, 0.0, gain)
+                elif init_type == 'xavier':
+                    nn.init.xavier_normal_(m.weight.data, gain=gain)
+                elif init_type == 'kaiming':
+                    nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+                elif init_type == 'orthogonal':
+                    nn.init.orthogonal_(m.weight.data, gain=gain)
+
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.constant_(m.bias.data, 0.0)
+
+            elif classname.find('BatchNorm2d') != -1:
+                nn.init.normal_(m.weight.data, 1.0, gain)
+                nn.init.constant_(m.bias.data, 0.0)
+
+        self.apply(init_func)
+
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+
 # Adopted from https://github.com/nv-tlabs/datasetGAN_release/blob/d9564d4d2f338eaad78132192b865b6cc1e26cac/datasetGAN/train_interpreter.py#L68
 class pixel_classifier(nn.Module):
     def __init__(self, numpy_class, dim):
         super(pixel_classifier, self).__init__()
-        # if numpy_class < 30:
         self.layers = nn.Sequential(
             nn.Linear(dim, 128),
             nn.ReLU(),
@@ -24,16 +68,6 @@ class pixel_classifier(nn.Module):
             nn.BatchNorm1d(num_features=32),
             nn.Linear(32, numpy_class)
         )
-        # else:
-        #     self.layers = nn.Sequential(
-        #         nn.Linear(dim, 256),
-        #         nn.ReLU(),
-        #         nn.BatchNorm1d(num_features=256),
-        #         nn.Linear(256, 128),
-        #         nn.ReLU(),
-        #         nn.BatchNorm1d(num_features=128),
-        #         nn.Linear(128, numpy_class)
-        #     )
 
     def init_weights(self, init_type='normal', gain=0.02):
         '''
@@ -65,6 +99,42 @@ class pixel_classifier(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
+
+
+
+def predict_labels_v2(models, images, size):
+    if isinstance(images, np.ndarray):
+        images = torch.from_numpy(images)
+    
+    mean_seg = None
+    seg_mode_ensemble = []
+
+    sigmoid = nn.Sigmoid()
+    with torch.no_grad():
+        for MODEL_NUMBER in range(len(models)):
+            
+            preds = models[MODEL_NUMBER](images.cuda())
+            preds = preds.view(preds.shape[2], preds.shape[3])
+            print("preds shape : ", preds.shape)
+
+            if mean_seg is None:
+                mean_seg = sigmoid(preds)
+            else:
+                mean_seg += sigmoid(preds)
+
+            img_seg = (sigmoid(preds) >= 0.5).int()
+
+            img_seg = img_seg.cpu().detach()
+            seg_mode_ensemble.append(img_seg)
+
+        mean_seg = mean_seg / len(models)
+
+        img_seg_final = torch.stack(seg_mode_ensemble, dim=-1)
+        img_seg_final = torch.mode(img_seg_final, 2)[0]
+
+        mean_seg = mean_seg.cpu().detach()
+    return mean_seg, img_seg_final
+
 
 
 def predict_labels(models, features, size):
@@ -181,6 +251,18 @@ def load_ensemble(args, device='cpu'):
         model_path = os.path.join(args['exp_dir'], f'model_{i}.pth')
         state_dict = torch.load(model_path)['model_state_dict']
         model = nn.DataParallel(pixel_classifier(args["number_class"], args['dim'][-1]))
+        model.load_state_dict(state_dict)
+        model = model.module.to(device)
+        models.append(model.eval())
+    return models
+
+
+def load_ensemble_v2(args, device='cpu'):
+    models = []
+    for i in range(args['model_num']):
+        model_path = os.path.join(args['exp_dir'], f'model_{i}.pth')
+        state_dict = torch.load(model_path)['model_state_dict']
+        model = nn.DataParallel(pixel_classifier_v2(numpy_class=(args['number_class']), dim=args['dim'][-1]))
         model.load_state_dict(state_dict)
         model = model.module.to(device)
         models.append(model.eval())
