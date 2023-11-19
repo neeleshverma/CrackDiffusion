@@ -16,6 +16,7 @@ from src.pixel_classifier import  load_ensemble_v2, compute_iou, predict_labels_
 from src.datasets import ImageLabelDataset, FeatureDataset, make_transform
 from src.feature_extractors import create_feature_extractor, collect_features_v2
 from src.topoloss import getTopoLoss
+from src.LossFunc import FocalLoss
 
 from guided_diffusion.guided_diffusion.script_util import model_and_diffusion_defaults, add_dict_to_argparser
 from guided_diffusion.guided_diffusion.dist_util import dev
@@ -148,7 +149,10 @@ def train_v2(args):
         classifier.init_weights()
 
         classifier = nn.DataParallel(classifier).cuda()
-        criterion1 = nn.BCEWithLogitsLoss()
+        if args["focal_loss"]:
+            criterion1 = FocalLoss()
+        else:
+            criterion1 = nn.BCEWithLogitsLoss()
         # criterion2 = getTopoLoss()
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
         classifier.train()
@@ -183,10 +187,10 @@ def train_v2(args):
                 loss = criterion1(y_pred, y_batch)
                 bce_loss += loss.item()
 
-                if epoch >= topoloss_epoch:
-                    topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
-                    topology_loss += topoloss.item()
-                    loss += topoloss
+                # if epoch >= topoloss_epoch:
+                #     topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
+                #     topology_loss += topoloss.item()
+                #     loss += topoloss
                 
                 epoch_loss += loss.item()
                 loss.backward()
