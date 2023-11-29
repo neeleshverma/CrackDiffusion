@@ -29,6 +29,19 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 
+from src.datasets import ImageLabelDataset, make_transform
+
+
+def get_dataset(data_dir, image_size, num_images, model_type):
+    return ImageLabelDataset(
+        data_dir=data_dir,
+        resolution=image_size,
+        num_images=num_images,
+        transform=make_transform(
+            model_type,
+            image_size
+        )
+    )
 
 def multi_acc(y_pred, y_test):
     y_pred_softmax = torch.log_softmax(y_pred, dim=1)

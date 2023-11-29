@@ -187,10 +187,10 @@ def train_v2(args):
                 loss = criterion1(y_pred, y_batch)
                 bce_loss += loss.item()
 
-                # if epoch >= topoloss_epoch:
-                #     topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
-                #     topology_loss += topoloss.item()
-                #     loss += topoloss
+                if epoch >= topoloss_epoch:
+                    topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
+                    topology_loss += topoloss.item()
+                    loss += topoloss
                 
                 epoch_loss += loss.item()
                 loss.backward()
