@@ -158,7 +158,7 @@ def train_v2(args):
         classifier.train()
 
         # Losses for plotting graphs
-        topology_loss_list = []
+        # topology_loss_list = []
         bce_loss_list = []
 
         print("*********** TRAINING MODEL {}************** \n".format(MODEL_NUMBER))
@@ -187,10 +187,10 @@ def train_v2(args):
                 loss = criterion1(y_pred, y_batch)
                 bce_loss += loss.item()
 
-                if epoch >= topoloss_epoch:
-                    topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
-                    topology_loss += topoloss.item()
-                    loss += topoloss
+                # if epoch >= topoloss_epoch:
+                #     topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
+                #     topology_loss += topoloss.item()
+                #     loss += topoloss
                 
                 epoch_loss += loss.item()
                 loss.backward()
@@ -201,7 +201,7 @@ def train_v2(args):
             print("***************** Epoch {} : Loss {:.2f}".format(epoch, epoch_loss))
             print("***************** Elapsed Time {} : ".format(end - start))
 
-            topology_loss_list.append(topology_loss)
+            # topology_loss_list.append(topology_loss)
             bce_loss_list.append(bce_loss)
 
         
@@ -213,7 +213,7 @@ def train_v2(args):
         print('')
 
         print('Saving Loss Plots ', args['exp_dir'])
-        plot(topology_loss_list, os.path.join(args['exp_dir'], "topoloss.png"), ylabel="Topology Loss", xlabel="Epochs")
+        # plot(topology_loss_list, os.path.join(args['exp_dir'], "topoloss.png"), ylabel="Topology Loss", xlabel="Epochs")
         plot(bce_loss_list, os.path.join(args['exp_dir'], "bce_loss.png"), ylabel="BCE Loss List", xlabel="Epochs")
                 
 
