@@ -6,11 +6,11 @@ from tqdm import tqdm
 from PIL import Image
 
 # Ground Truth, Original and Destination Folder
-gt_folder = "/home/neelesh/crackdiff/datasets/cfd/gt"
-orig_folder = "/home/neelesh/crackdiff/datasets/cfd/orig"
-dest_folder = "/home/neelesh/crackdiff/datasets/cfd/test"
+gt_folder = "/home/neelesh/crackdiff/datasets/cracktree200/gt"
+orig_folder = "/home/neelesh/crackdiff/datasets/cracktree200/orig"
+dest_folder = "/home/neelesh/crackdiff/datasets/cracktree200/test"
 
-convert_to_npy = True
+convert_to_npy = False
 
 if convert_to_npy:
     folder = gt_folder
@@ -25,6 +25,7 @@ for i in tqdm(range(len(files))):
     resized_img = cv2.resize(img, (256, 256), interpolation = cv2.INTER_LINEAR)
 
     if convert_to_npy:
+        resized_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2GRAY)
         resized_img[resized_img >= 1] = 255
         output_filename = os.path.splitext(files[i])[0] + '.npy'
         output_path = os.path.join(dest_folder, output_filename)
