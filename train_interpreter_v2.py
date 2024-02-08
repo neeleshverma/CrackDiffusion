@@ -149,11 +149,13 @@ def train_v2(args):
         classifier.init_weights()
 
         classifier = nn.DataParallel(classifier).cuda()
+        
         if args["focal_loss"]:
             criterion1 = FocalLoss()
         else:
             criterion1 = nn.BCEWithLogitsLoss()
         # criterion2 = getTopoLoss()
+
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
         classifier.train()
 
