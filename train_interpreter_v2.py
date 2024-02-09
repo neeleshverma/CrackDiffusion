@@ -85,20 +85,12 @@ def evaluation_v2(args, models):
         X = eval_feature_extractor(img, noise=noise)
         X = collect_features_v2(args, X)
         X = torch.unsqueeze(X, dim=0)  
-        # print("X shape : ", X.shape)
-
         prob_map, pred = predict_labels_v2(
             models, X, size=args['dim'][-1]
         )
-        # pred = 1.0 - pred
-        # print(pred)
-        # print(label)
-        # print(prob_map)
-        # exit(0)
         gts.append(label.numpy())
         preds.append(pred.numpy())
         prob_maps.append(prob_map.numpy())
-        # uncertainty_scores.append(uncertainty_score.item())
     
     save_predictions(args, dataset.image_paths, preds, prob_maps, gts)
 
@@ -106,7 +98,6 @@ def evaluation_v2(args, models):
     miou = compute_iou(args, preds, gts)
     print("--------------------------------- IoU Scores ----------------------------------")
     print(f'Overall mIoU: ', miou)
-    # print(f'Mean uncertainty: {sum(uncertainty_scores) / len(uncertainty_scores)}')
     print("-------------------------------------------------------------------------------")
 
     log_txt = "Overall mIoU : {} : \n".format(miou)
@@ -154,13 +145,12 @@ def train_v2(args):
             criterion1 = FocalLoss()
         else:
             criterion1 = nn.BCEWithLogitsLoss()
-        # criterion2 = getTopoLoss()
-
+                
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
         classifier.train()
 
         # Losses for plotting graphs
-        # topology_loss_list = []
+        topology_loss_list = []
         bce_loss_list = []
 
         print("*********** TRAINING MODEL {}************** \n".format(MODEL_NUMBER))
@@ -189,10 +179,11 @@ def train_v2(args):
                 loss = criterion1(y_pred, y_batch)
                 bce_loss += loss.item()
 
-                # if epoch >= topoloss_epoch:
-                #     topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
-                #     topology_loss += topoloss.item()
-                #     loss += topoloss
+                if args["topo_loss"]:
+                    if epoch >= topoloss_epoch:
+                        topoloss = topology_loss_weight * getTopoLoss(y_pred, y_batch)
+                        topology_loss += topoloss.item()
+                        loss += topoloss
                 
                 epoch_loss += loss.item()
                 loss.backward()
@@ -203,8 +194,9 @@ def train_v2(args):
             print("***************** Epoch {} : Loss {:.2f}".format(epoch, epoch_loss))
             print("***************** Elapsed Time {} : ".format(end - start))
 
-            # topology_loss_list.append(topology_loss)
             bce_loss_list.append(bce_loss)
+            if args["topo_loss"]:
+                topology_loss_list.append(topology_loss)
 
         
         model_path = os.path.join(args['exp_dir'], 'model_' + str(MODEL_NUMBER) + '.pth')
@@ -215,7 +207,8 @@ def train_v2(args):
         print('')
 
         print('Saving Loss Plots ', args['exp_dir'])
-        # plot(topology_loss_list, os.path.join(args['exp_dir'], "topoloss.png"), ylabel="Topology Loss", xlabel="Epochs")
+        if args["topo_loss"]:
+            plot(topology_loss_list, os.path.join(args['exp_dir'], "topoloss.png"), ylabel="Topology Loss", xlabel="Epochs")
         plot(bce_loss_list, os.path.join(args['exp_dir'], "bce_loss.png"), ylabel="BCE Loss List", xlabel="Epochs")
                 
 
