@@ -144,7 +144,8 @@ def train_v2(args):
         if args["focal_loss"]:
             criterion1 = FocalLoss()
         else:
-            criterion1 = nn.BCEWithLogitsLoss()
+            pos_weight = args["pos_weight"]
+            criterion1 = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
                 
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
         classifier.train()
