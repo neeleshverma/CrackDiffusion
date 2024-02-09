@@ -19,7 +19,7 @@
     "steps": [50, 150, 250],
     "blocks": [5, 6, 7, 8, 12],
   
-    "model_num": 1,
+    "model_num": 4,
 
     "max_training": 30,
     "feature_batch_size": 512,
@@ -27,11 +27,12 @@
     "image_batch_size": 32,
     "num_epochs": 50,
     "validation_epochs": 10,
-    "num_training_images": 200,
-    "num_testing_images": 200,
+    "num_training_images": 70,
+    "num_testing_images": 23,
     "topology_weight": 0.000005,
     "start_topoloss": 5,
 
+    "topo_loss": false,
     "focal_loss": false,
   
     "upsample_mode":"bilinear",
