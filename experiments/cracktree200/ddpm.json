@@ -1,5 +1,5 @@
 {
-    "exp_dir": "pixel_classifiers/cracktree200/bce_loss",
+    "exp_dir": "pixel_classifiers/cracktree200/topo_loss",
     "segmentations_folder": "segmentations",
     "ground_truths_folder": "ground_truthts",
     "probability_maps_folder": "probability_maps",
@@ -31,10 +31,10 @@
     "num_testing_images": 41,
     "pos_weight": 137,
 
-    "focal_loss": false,
-    "topo_loss": false,
-    "topology_weight": 0.000005,
-    "start_topoloss": 5,
+    "focal_loss": true,
+    "topo_loss": true,
+    "topology_weight": 0.0005,
+    "start_topoloss": 3,
   
     "upsample_mode":"bilinear",
     "share_noise": true,

@@ -1,5 +1,5 @@
 {
-    "exp_dir": "pixel_classifiers/cfd/bce_loss",
+    "exp_dir": "pixel_classifiers/cfd/focal_loss",
     "segmentations_folder": "segmentations",
     "ground_truths_folder": "ground_truthts",
     "probability_maps_folder": "probability_maps",
@@ -19,7 +19,7 @@
     "steps": [50, 150, 250],
     "blocks": [5, 6, 7, 8, 12],
   
-    "model_num": 4,
+    "model_num": 2,
 
     "max_training": 30,
     "feature_batch_size": 512,
@@ -33,7 +33,7 @@
     "start_topoloss": 5,
 
     "topo_loss": false,
-    "focal_loss": false,
+    "focal_loss": true,
   
     "upsample_mode":"bilinear",
     "share_noise": true,
