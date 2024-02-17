@@ -1,5 +1,5 @@
 {
-    "exp_dir": "pixel_classifiers/crack500_2/focal_loss_001",
+    "exp_dir": "pixel_classifiers/crack500_2/focal_loss",
     "segmentations_folder": "segmentations",
     "ground_truths_folder": "ground_truthts",
     "probability_maps_folder": "probability_maps",
@@ -28,11 +28,12 @@
     "num_epochs": 50,
     "validation_epochs": 10,
     "num_training_images": 200,
-    "num_testing_images": 100,
-    "topology_weight": 0.000005,
-    "start_topoloss": 5,
-
+    "num_testing_images": 40,
+    
     "focal_loss": true,
+    "topo_loss": false,
+    "start_topoloss": 5,
+    "topology_weight": 0.000005,
   
     "upsample_mode":"bilinear",
     "share_noise": true,
