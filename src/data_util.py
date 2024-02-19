@@ -13,6 +13,8 @@ def get_palette(category):
         return celeba_palette
     elif category == 'crack500_2':
         return crack500_2_palette
+    elif category == 'crackls315':
+        return crack500_2_palette
 
 
 def get_class_names(category):
@@ -29,7 +31,9 @@ def get_class_names(category):
     elif category == 'celeba_19':
         return celeba_class
     elif category == 'crack500_2':
-        return crack500_2_class   
+        return crack500_2_class
+    elif category == 'crackls315':
+        return crackls315_class   
 
 ###############
 # Class names #
@@ -77,7 +81,7 @@ ade_bedroom_40_class = ade_bedroom_50_class[:40]
 ade_bedroom_30_class = ade_bedroom_50_class[:30]
 
 crack500_2_class = ['background', 'foreground']
-
+crackls315_class = ['background', 'foreground']
 ###########
 # Palette #
 ###########
